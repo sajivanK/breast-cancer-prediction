@@ -1,6 +1,5 @@
 import streamlit as st
 import joblib
-import numpy as np
 import pandas as pd
 
 # Load model and scaler
@@ -9,54 +8,41 @@ scaler = joblib.load("scaler.pkl")
 
 st.set_page_config(page_title="Breast Cancer Prediction", layout="centered")
 st.title("🩺 Breast Cancer Prediction App")
-st.write("This app predicts whether a tumor is **Benign** or **Malignant** based on patient features.")
+st.write("Upload a CSV file with patient data to predict whether tumors are **Benign** or **Malignant**.")
 
-# Example feature inputs (use the same order as your training dataset)
-# Adjust these feature names based on what your notebook used (X_train columns)
+# Expected features (30 columns from dataset)
 feature_names = [
-    "radius_mean", "texture_mean", "perimeter_mean", "area_mean", "smoothness_mean"
+    "radius_mean", "texture_mean", "perimeter_mean", "area_mean", "smoothness_mean",
+    "compactness_mean", "concavity_mean", "concave points_mean", "symmetry_mean", "fractal_dimension_mean",
+    "radius_se", "texture_se", "perimeter_se", "area_se", "smoothness_se",
+    "compactness_se", "concavity_se", "concave points_se", "symmetry_se", "fractal_dimension_se",
+    "radius_worst", "texture_worst", "perimeter_worst", "area_worst", "smoothness_worst",
+    "compactness_worst", "concavity_worst", "concave points_worst", "symmetry_worst", "fractal_dimension_worst"
 ]
 
-# Sidebar for input mode
-mode = st.sidebar.radio("Choose input mode:", ["Single Patient", "Batch Prediction"])
+uploaded_file = st.file_uploader("📂 Upload CSV", type=["csv"])
 
-if mode == "Single Patient":
-    st.subheader("🔹 Enter Patient Data")
+if uploaded_file is not None:
+    data = pd.read_csv(uploaded_file)
 
-    user_input = []
-    for feature in feature_names:
-        val = st.number_input(f"Enter {feature}:", min_value=0.0, step=0.1)
-        user_input.append(val)
-
-    if st.button("Predict"):
-        # Scale and predict
-        input_scaled = scaler.transform([user_input])
-        prediction = model.predict(input_scaled)[0]
-        proba = model.predict_proba(input_scaled)[0]
-
-        if prediction == 1:
-            st.error(f"⚠️ Prediction: **Malignant (Cancer Detected)** — Probability {proba[1]*100:.2f}%")
-        else:
-            st.success(f"✅ Prediction: **Benign (No Cancer)** — Probability {proba[0]*100:.2f}%")
-
-elif mode == "Batch Prediction":
-    st.subheader("📂 Upload CSV File")
-    uploaded_file = st.file_uploader("Upload a CSV with patient data", type=["csv"])
-
-    if uploaded_file is not None:
-        data = pd.read_csv(uploaded_file)
-
+    # Check if CSV has correct columns
+    if list(data.columns) != feature_names:
+        st.error("❌ CSV file must have exactly 30 feature columns in the correct order.")
+        st.write("Expected columns:", feature_names)
+    else:
         # Scale and predict
         data_scaled = scaler.transform(data)
         preds = model.predict(data_scaled)
         probas = model.predict_proba(data_scaled)
 
+        # Add predictions to dataframe
         data["Prediction"] = ["Malignant" if p == 1 else "Benign" for p in preds]
         data["Malignant_Probability"] = probas[:, 1]
         data["Benign_Probability"] = probas[:, 0]
 
-        st.write("### 🔎 Results")
+        st.success("✅ Predictions complete!")
         st.dataframe(data)
 
-        # Show summary chart
+        # Show summary
+        st.subheader("📊 Prediction Summary")
         st.bar_chart(data["Prediction"].value_counts())
